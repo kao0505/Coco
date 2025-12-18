@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>摳摳守護者</title>
+    <title>摳摳守護者 - 月份獨立版</title>
     <style>
         :root { --primary: #2563eb; --success: #22c55e; --danger: #ef4444; --bg: #f8fafc; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -52,7 +52,7 @@
     <div class="main-balance">
         <span class="days-left" id="days-info"></span>
         <div class="balance-item">
-            <small>當前總剩餘</small>
+            <small id="current-month-label">當前剩餘</small>
             <div id="actual-cash">$ 0</div>
         </div>
         <div class="balance-item" style="border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px;">
@@ -88,7 +88,7 @@
     
     <div class="system-zone">
         <div class="adjust-box">
-            <label style="font-size: 12px; color: #64748b;">目前實際多少錢？</label>
+            <label id="adjust-label" style="font-size: 12px; color: #64748b;">目前實際多少錢？</label>
             <div style="display: flex; gap: 8px; margin-top: 5px;">
                 <input type="number" id="manual-adjust-val" placeholder="輸入實際金額" style="padding: 8px; font-size: 14px;">
                 <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">執行校準</button>
@@ -104,9 +104,9 @@
 </div>
 
 <script>
-    let records = JSON.parse(localStorage.getItem('budget_records_v10')) || [];
+    let records = JSON.parse(localStorage.getItem('budget_records_v11')) || [];
     let currentType = 'out';
-    let lastCalculatedCash = 0;
+    let monthSpecificCash = 0;
 
     function loadSettings() {
         document.getElementById('monthly-budget').value = localStorage.getItem('budget_setting_total') || "0";
@@ -142,31 +142,31 @@
         const limit = parseFloat(document.getElementById('daily-limit').value) || 0;
         const selectedMonth = document.getElementById('view-month').value;
         const [year, month] = selectedMonth.split('/').map(Number);
-        
         const lastDayOfMonth = new Date(year, month, 0).getDate();
         const today = new Date();
         const isCurrentMonth = (today.getFullYear() === year && (today.getMonth() + 1) === month);
 
+        // 僅篩選選中月份的紀錄
         const filtered = records.filter(r => {
             const d = new Date(r.timestamp);
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
+        // 當前月份結餘 (月預算 + 當月總收入 - 當月總支出)
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
-        
-        // 1. 當前總剩餘 (手邊實際現有的錢)
-        lastCalculatedCash = budget + totalIn - totalOut;
+        monthSpecificCash = budget + totalIn - totalOut;
 
-        // 2. 自由基金：(當前現金) - (本月剩餘天數 * 日上限)
-        // 包含今天在內的剩餘天數
+        // 自由基金 (符合你的最新邏輯)：當前月份現金 - (本月剩餘天數 * 日上限)
         const daysRemaining = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
-        const safetyBal = lastCalculatedCash - (daysRemaining * limit);
+        const safetyBal = monthSpecificCash - (daysRemaining * limit);
 
-        document.getElementById('actual-cash').innerText = `$ ${Math.round(lastCalculatedCash).toLocaleString()}`;
+        // UI 更新
+        document.getElementById('current-month-label').innerText = month + "月當前剩餘";
+        document.getElementById('adjust-label').innerText = month + "月實際有多少錢？";
+        document.getElementById('actual-cash').innerText = `$ ${Math.round(monthSpecificCash).toLocaleString()}`;
         document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
         document.getElementById('safety-balance').style.color = safetyBal >= 0 ? "#63ffad" : "#ff8787";
-        
         document.getElementById('days-info').innerText = isCurrentMonth ? `本月剩餘 ${daysRemaining} 天` : "";
 
         renderHistory(filtered, limit);
@@ -175,26 +175,51 @@
     function adjustBalance() {
         const targetVal = parseFloat(document.getElementById('manual-adjust-val').value);
         if (isNaN(targetVal)) return;
-        const diff = targetVal - lastCalculatedCash;
+        const diff = targetVal - monthSpecificCash;
         if (diff === 0) return;
+        
+        // 取得目前選單選擇的月份與年份，確保校準紀錄記在「那個月」
+        const selectedMonth = document.getElementById('view-month').value;
+        const [year, month] = selectedMonth.split('/').map(Number);
         const now = new Date();
-        records.push({ date: now.toLocaleDateString('zh-TW'), note: "校正紀錄", amount: Math.abs(diff), type: diff > 0 ? 'in' : 'out', timestamp: now.getTime() });
+        // 建立一個該月份的偽造時間戳記
+        const timestamp = new Date(year, month - 1, now.getDate(), now.getHours(), now.getMinutes()).getTime();
+
+        records.push({ 
+            date: new Date(timestamp).toLocaleDateString('zh-TW'), 
+            note: "校正紀錄", 
+            amount: Math.abs(diff), 
+            type: diff > 0 ? 'in' : 'out', 
+            timestamp: timestamp 
+        });
         document.getElementById('manual-adjust-val').value = '';
         saveAndRefresh();
+        alert(month + "月餘額已校準！");
     }
 
     function addRecord() {
         const amtInput = document.getElementById('spend-amount');
         const noteInput = document.getElementById('spend-note');
         if (isNaN(parseFloat(amtInput.value))) return;
+        
+        const selectedMonth = document.getElementById('view-month').value;
+        const [year, month] = selectedMonth.split('/').map(Number);
         const now = new Date();
-        records.push({ date: now.toLocaleDateString('zh-TW'), note: noteInput.value || (currentType === 'in' ? "收入" : "支出"), amount: parseFloat(amtInput.value), type: currentType, timestamp: now.getTime() });
+        const timestamp = new Date(year, month - 1, now.getDate(), now.getHours(), now.getMinutes()).getTime();
+
+        records.push({ 
+            date: new Date(timestamp).toLocaleDateString('zh-TW'), 
+            note: noteInput.value || (currentType === 'in' ? "收入" : "支出"), 
+            amount: parseFloat(amtInput.value), 
+            type: currentType, 
+            timestamp: timestamp 
+        });
         saveAndRefresh();
         amtInput.value = ''; noteInput.value = '';
     }
 
     function deleteRecord(timestamp) { if (confirm("要刪除嗎？")) { records = records.filter(r => r.timestamp !== timestamp); saveAndRefresh(); } }
-    function saveAndRefresh() { localStorage.setItem('budget_records_v10', JSON.stringify(records)); calculate(); }
+    function saveAndRefresh() { localStorage.setItem('budget_records_v11', JSON.stringify(records)); calculate(); }
 
     function renderHistory(data, limit) {
         const list = document.getElementById('history-list'); list.innerHTML = '';
