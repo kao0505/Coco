@@ -9,7 +9,6 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { background: white; width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 20px; box-sizing: border-box; }
         
-        /* 雙看板樣式 */
         .main-balance { background: #1e293b; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; position: relative; margin-top: 5px; }
         .balance-item { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; }
         .balance-item small { font-size: 12px; color: #94a3b8; }
@@ -46,7 +45,10 @@
         .diff-pos { color: var(--success); }
         .diff-neg { color: var(--danger); }
         
-        .backup-zone { margin-top: 40px; border-top: 1px dashed #cbd5e1; padding-top: 15px; display: flex; gap: 8px; }
+        /* 校準與備份區 */
+        .system-zone { margin-top: 40px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
+        .adjust-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 15px; }
+        .backup-btns { display: flex; gap: 8px; }
         .btn-small { flex: 1; padding: 8px; background: #f1f5f9; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; color: #64748b; }
     </style>
 </head>
@@ -60,11 +62,11 @@
     <div class="main-balance">
         <span class="days-left" id="days-info"></span>
         <div class="balance-item">
-            <small>當前總剩餘</small>
+            <small>當前總剩餘 (手邊現金)</small>
             <div id="actual-cash">$ 0</div>
         </div>
         <div class="balance-item" style="border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px;">
-            <small>自由基金</small>
+            <small>安全自由金 (扣除未來預算)</small>
             <div id="safety-balance" style="color: #63ffad;">$ 0</div>
         </div>
     </div>
@@ -94,10 +96,20 @@
         <div id="history-list"></div>
     </div>
     
-    <div class="backup-zone">
-        <button class="btn-small" onclick="exportData()">備份資料</button>
-        <button class="btn-small" onclick="importData()">匯入資料</button>
-        <button class="btn-small" style="color:var(--danger)" onclick="clearData()">清空所有</button>
+    <div class="system-zone">
+        <div class="adjust-box">
+            <label style="font-size: 12px; color: #64748b;">餘額校準：目前錢包實際有多少錢？</label>
+            <div style="display: flex; gap: 8px; margin-top: 5px;">
+                <input type="number" id="manual-adjust-val" placeholder="輸入實際金額" style="padding: 8px; font-size: 14px;">
+                <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">執行校準</button>
+            </div>
+        </div>
+
+        <div class="backup-btns">
+            <button class="btn-small" onclick="exportData()">備份資料</button>
+            <button class="btn-small" onclick="importData()">匯入資料</button>
+            <button class="btn-small" style="color:var(--danger)" onclick="clearData()">清空所有</button>
+        </div>
     </div>
     <input type="file" id="importFile" style="display:none" onchange="handleFileSelect(event)">
 </div>
@@ -105,6 +117,7 @@
 <script>
     let records = JSON.parse(localStorage.getItem('budget_records_v10')) || [];
     let currentType = 'out';
+    let lastCalculatedCash = 0;
 
     function loadSettings() {
         document.getElementById('monthly-budget').value = localStorage.getItem('budget_setting_total') || "0";
@@ -123,8 +136,7 @@
             const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
             const val = `${d.getFullYear()}/${d.getMonth() + 1}`;
             const opt = document.createElement('option');
-            opt.value = val;
-            opt.innerText = val; // 移除「帳目」
+            opt.value = val; opt.innerText = val;
             if (i === 0) opt.selected = true;
             selector.appendChild(opt);
         }
@@ -152,18 +164,41 @@
 
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
-        const currentCash = budget + totalIn - totalOut;
+        
+        lastCalculatedCash = budget + totalIn - totalOut;
 
         const daysLeft = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
         const futureCommitment = daysLeft * limit;
-        const safetyBal = currentCash - futureCommitment;
+        const safetyBal = lastCalculatedCash - futureCommitment;
 
-        document.getElementById('actual-cash').innerText = `$ ${Math.round(currentCash).toLocaleString()}`;
+        document.getElementById('actual-cash').innerText = `$ ${Math.round(lastCalculatedCash).toLocaleString()}`;
         document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
         document.getElementById('safety-balance').style.color = safetyBal >= 0 ? "#63ffad" : "#ff8787";
         document.getElementById('days-info').innerText = isCurrentMonth ? `距離月底 ${daysLeft-1} 天` : "";
 
         renderHistory(filtered, limit);
+    }
+
+    // 校準功能邏輯
+    function adjustBalance() {
+        const targetVal = parseFloat(document.getElementById('manual-adjust-val').value);
+        if (isNaN(targetVal)) return;
+
+        const diff = targetVal - lastCalculatedCash;
+        if (diff === 0) return;
+
+        const now = new Date();
+        records.push({
+            date: now.toLocaleDateString('zh-TW'),
+            note: "餘額校準",
+            amount: Math.abs(diff),
+            type: diff > 0 ? 'in' : 'out',
+            timestamp: now.getTime()
+        });
+
+        document.getElementById('manual-adjust-val').value = '';
+        saveAndRefresh();
+        alert("校準完成！已補上差額。");
     }
 
     function addRecord() {
@@ -223,8 +258,7 @@
     function exportData() {
         const blob = new Blob([JSON.stringify(records)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = '預算備份.json'; a.click();
+        const a = document.createElement('a'); a.href = url; a.download = '預算備份.json'; a.click();
     }
 
     function importData() { document.getElementById('importFile').click(); }
@@ -232,10 +266,8 @@
     function handleFileSelect(e) {
         const reader = new FileReader();
         reader.onload = function(event) {
-            try {
-                records = JSON.parse(event.target.result);
-                saveAndRefresh(); alert("備份匯入成功！");
-            } catch(e) { alert("格式錯誤"); }
+            try { records = JSON.parse(event.target.result); saveAndRefresh(); alert("備份匯入成功！"); } 
+            catch(e) { alert("格式錯誤"); }
         };
         reader.readAsText(e.target.files[0]);
     }
