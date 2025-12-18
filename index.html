@@ -88,10 +88,10 @@
     
     <div class="system-zone">
         <div class="adjust-box">
-            <label style="font-size: 12px; color: #64748b;">餘額校準：目前實際多少錢？</label>
+            <label style="font-size: 12px; color: #64748b;">目前實際多少錢？</label>
             <div style="display: flex; gap: 8px; margin-top: 5px;">
                 <input type="number" id="manual-adjust-val" placeholder="輸入實際金額" style="padding: 8px; font-size: 14px;">
-                <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">校準</button>
+                <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">執行校準</button>
             </div>
         </div>
         <div class="backup-btns">
@@ -142,7 +142,6 @@
         const limit = parseFloat(document.getElementById('daily-limit').value) || 0;
         const selectedMonth = document.getElementById('view-month').value;
         const [year, month] = selectedMonth.split('/').map(Number);
-        
         const lastDayDate = new Date(year, month, 0);
         const lastDayOfMonth = lastDayDate.getDate();
         const today = new Date();
@@ -153,22 +152,24 @@
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
-        // 1. 當前現金
+        // 1. 當前總剩餘
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
         lastCalculatedCash = budget + totalIn - totalOut;
 
-        // 2. 符合你的算法邏輯的「自由金」
-        // 公式：(月預算 - 月天數 * 日上限) + (已花錢天數 * 日上限 - 已花錢總額) + 額外收入
-        const baseIdleMoney = budget - (lastDayOfMonth * limit); // 全月預扣掉生活費後剩餘的錢 (3700)
+        // 2. 自由基金：(月預算 - 全月生活費) + 累計省下的錢 + 一般收入 (排除校準)
+        const baseIdleMoney = budget - (lastDayOfMonth * limit);
+        const normalOutRecords = filtered.filter(r => r.type === 'out' && r.note !== "校正紀錄");
+        const normalInRecords = filtered.filter(r => r.type === 'in' && r.note !== "校正紀錄");
         
-        // 計算「過去省下的錢」：找出有支出的不重複日期
-        const uniqueOutDates = new Set(filtered.filter(r => r.type === 'out').map(r => r.date));
+        const normalTotalOut = normalOutRecords.reduce((sum, r) => sum + r.amount, 0);
+        const normalTotalIn = normalInRecords.reduce((sum, r) => sum + r.amount, 0);
+        
+        const uniqueOutDates = new Set(normalOutRecords.map(r => r.date));
         const activeDaysCount = uniqueOutDates.size;
-        const savedFromDaily = (activeDaysCount * limit) - totalOut; // 已花天數的額度 - 總支出
         
-        // 自由金 = 初始閒錢 + 累計省下的錢 + 額外收入
-        const safetyBal = baseIdleMoney + savedFromDaily + totalIn;
+        const savedFromDaily = (activeDaysCount * limit) - normalTotalOut;
+        const safetyBal = baseIdleMoney + savedFromDaily + normalTotalIn;
 
         document.getElementById('actual-cash').innerText = `$ ${Math.round(lastCalculatedCash).toLocaleString()}`;
         document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
@@ -186,7 +187,7 @@
         const diff = targetVal - lastCalculatedCash;
         if (diff === 0) return;
         const now = new Date();
-        records.push({ date: now.toLocaleDateString('zh-TW'), note: "餘額校準", amount: Math.abs(diff), type: diff > 0 ? 'in' : 'out', timestamp: now.getTime() });
+        records.push({ date: now.toLocaleDateString('zh-TW'), note: "校正紀錄", amount: Math.abs(diff), type: diff > 0 ? 'in' : 'out', timestamp: now.getTime() });
         document.getElementById('manual-adjust-val').value = '';
         saveAndRefresh();
     }
