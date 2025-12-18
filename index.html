@@ -32,10 +32,14 @@
         /* 明細列表 */
         .history { margin-top: 20px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
         .history-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f8fafc; align-items: center; }
-        .date-info { display: flex; flex-direction: column; }
+        .date-info { display: flex; flex-direction: column; flex-grow: 1; }
         .date-tag { font-size: 11px; color: #94a3b8; }
         .note-text { font-size: 15px; font-weight: 500; color: #334155; }
         
+        .item-right { text-align: right; display: flex; align-items: center; gap: 10px; }
+        .delete-btn { color: #cbd5e1; cursor: pointer; font-size: 18px; padding: 5px; line-height: 1; transition: 0.2s; border: none; background: none; }
+        .delete-btn:hover { color: var(--danger); }
+
         .txt-red { color: var(--danger); font-weight: bold; }
         .txt-green { color: var(--success); font-weight: bold; }
         .diff-tag { font-size: 12px; font-weight: bold; margin-left: 4px; }
@@ -96,7 +100,6 @@
     let records = JSON.parse(localStorage.getItem('budget_records_v10')) || [];
     let currentType = 'out';
 
-    // 初始化月份選單 (前 6 個月 ~ 後 6 個月)
     function initMonthSelector() {
         const selector = document.getElementById('view-month');
         const now = new Date();
@@ -125,19 +128,16 @@
         const [year, month] = selectedMonth.split('/').map(Number);
         const daysInMonth = new Date(year, month, 0).getDate();
         
-        // 篩選當月資料
         const filtered = records.filter(r => {
             const d = new Date(r.timestamp);
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
-        // 邏輯計算
         const uniqueOutDates = new Set(filtered.filter(r => r.type === 'out').map(r => r.date));
         const activeDaysCount = uniqueOutDates.size;
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
         
-        // 總月餘 = (總額 - 每日上限*天數) + (有花錢天數*每日上限) - 總花費 + 總收入
         const baseReserve = budget - (limit * daysInMonth);
         const currentBalance = baseReserve + (activeDaysCount * limit) - totalOut + totalIn;
 
@@ -163,8 +163,19 @@
             timestamp: now.getTime()
         });
 
-        localStorage.setItem('budget_records_v10', JSON.stringify(records));
+        saveAndRefresh();
         amtInput.value = ''; noteInput.value = '';
+    }
+
+    function deleteRecord(timestamp) {
+        if (confirm("確定要刪除這筆紀錄嗎？")) {
+            records = records.filter(r => r.timestamp !== timestamp);
+            saveAndRefresh();
+        }
+    }
+
+    function saveAndRefresh() {
+        localStorage.setItem('budget_records_v10', JSON.stringify(records));
         calculate();
     }
 
@@ -200,7 +211,10 @@
                         <span class="date-tag">${r.date}</span>
                         <span class="note-text">${r.note}</span>
                     </div>
-                    ${rightHTML}
+                    <div class="item-right">
+                        ${rightHTML}
+                        <button class="delete-btn" onclick="deleteRecord(${r.timestamp})">✕</button>
+                    </div>
                 </div>`;
         });
     }
@@ -219,8 +233,7 @@
         reader.onload = function(event) {
             try {
                 records = JSON.parse(event.target.result);
-                localStorage.setItem('budget_records_v10', JSON.stringify(records));
-                calculate(); alert("資料匯入成功！");
+                saveAndRefresh(); alert("資料匯入成功！");
             } catch(e) { alert("檔案格式錯誤"); }
         };
         reader.readAsText(e.target.files[0]);
