@@ -8,9 +8,13 @@
         :root { --primary: #2563eb; --success: #22c55e; --danger: #ef4444; --bg: #f8fafc; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { background: white; width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 20px; box-sizing: border-box; }
-        .main-balance { background: #1e293b; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; position: relative; }
-        .main-balance div { font-size: 32px; font-weight: 800; margin-top: 5px; }
-        .days-left { position: absolute; top: 10px; right: 15px; font-size: 11px; color: #94a3b8; }
+        
+        /* 雙看板樣式 */
+        .main-balance { background: #1e293b; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; position: relative; margin-top: 5px; }
+        .balance-item { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; }
+        .balance-item small { font-size: 12px; color: #94a3b8; }
+        .balance-item div { font-size: 24px; font-weight: 800; }
+        .days-left { position: absolute; top: 10px; right: 15px; font-size: 11px; color: #64748b; }
         
         .month-selector-group { margin-bottom: 15px; text-align: center; }
         select { padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 16px; font-weight: bold; background: #fff; color: var(--primary); width: 100%; cursor: pointer; text-align-last: center; }
@@ -49,16 +53,20 @@
 <body>
 
 <div class="container">
-    <h2 style="text-align:center; color:#1e293b; margin-top:0;">🛡️ 摳摳守護者</h2>
-
     <div class="month-selector-group">
         <select id="view-month" onchange="calculate()"></select>
     </div>
 
     <div class="main-balance">
         <span class="days-left" id="days-info"></span>
-        <small id="balance-label">結餘計算中...</small>
-        <div id="total-balance">$ 0</div>
+        <div class="balance-item">
+            <small>當前總剩餘 (手邊現金)</small>
+            <div id="actual-cash">$ 0</div>
+        </div>
+        <div class="balance-item" style="border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px;">
+            <small>安全自由金 (扣除未來預算)</small>
+            <div id="safety-balance" style="color: #63ffad;">$ 0</div>
+        </div>
     </div>
 
     <div class="config-grid">
@@ -77,7 +85,7 @@
             <button id="btn-out" class="type-btn active-out" onclick="setType('out')">支出 (紅)</button>
             <button id="btn-in" class="type-btn" onclick="setType('in')">收入 (綠)</button>
         </div>
-        <input type="text" id="spend-note" placeholder="項目說明 (如: 午餐)">
+        <input type="text" id="spend-note" placeholder="項目說明">
         <input type="number" id="spend-amount" placeholder="金額" style="margin-top:5px">
         <button class="main-submit" style="margin-top:10px" onclick="addRecord()">存入帳目</button>
     </div>
@@ -111,12 +119,12 @@
     function initMonthSelector() {
         const selector = document.getElementById('view-month');
         const now = new Date();
-        for (let i = 2; i > -12; i--) {
+        for (let i = 2; i > -10; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
             const val = `${d.getFullYear()}/${d.getMonth() + 1}`;
             const opt = document.createElement('option');
             opt.value = val;
-            opt.innerText = val; // 移除「帳目」二字
+            opt.innerText = val; // 移除「帳目」
             if (i === 0) opt.selected = true;
             selector.appendChild(opt);
         }
@@ -132,40 +140,28 @@
         const budget = parseFloat(document.getElementById('monthly-budget').value) || 0;
         const limit = parseFloat(document.getElementById('daily-limit').value) || 0;
         const selectedMonth = document.getElementById('view-month').value;
-        
         const [year, month] = selectedMonth.split('/').map(Number);
         const lastDayOfMonth = new Date(year, month, 0).getDate();
-        
+        const today = new Date();
+        const isCurrentMonth = (today.getFullYear() === year && (today.getMonth() + 1) === month);
+
         const filtered = records.filter(r => {
             const d = new Date(r.timestamp);
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
-        let startDay = 1;
-        if (filtered.length > 0) {
-            const firstRecordDate = new Date(Math.min(...filtered.map(r => r.timestamp)));
-            startDay = firstRecordDate.getDate();
-        }
-        
-        const totalDaysCount = (lastDayOfMonth - startDay) + 1;
-        const adjustedBudget = (budget / lastDayOfMonth) * totalDaysCount;
-        
-        const uniqueOutDates = new Set(filtered.filter(r => r.type === 'out').map(r => r.date));
-        const activeDaysCount = uniqueOutDates.size;
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
-        
-        const baseReserve = adjustedBudget - (limit * totalDaysCount);
-        const currentBalance = baseReserve + (activeDaysCount * limit) - totalOut + totalIn;
+        const currentCash = budget + totalIn - totalOut;
 
-        const today = new Date();
-        const daysLeft = lastDayOfMonth - today.getDate();
-        document.getElementById('days-info').innerText = daysLeft >= 0 && (today.getMonth()+1 === month) ? `距離月底 ${daysLeft} 天` : "";
+        const daysLeft = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
+        const futureCommitment = daysLeft * limit;
+        const safetyBal = currentCash - futureCommitment;
 
-        document.getElementById('balance-label').innerText = `${selectedMonth} 結餘`;
-        const balEl = document.getElementById('total-balance');
-        balEl.innerText = `$ ${Math.round(currentBalance).toLocaleString()}`;
-        balEl.style.color = currentBalance >= 0 ? "#63ffad" : "#ff8787";
+        document.getElementById('actual-cash').innerText = `$ ${Math.round(currentCash).toLocaleString()}`;
+        document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
+        document.getElementById('safety-balance').style.color = safetyBal >= 0 ? "#63ffad" : "#ff8787";
+        document.getElementById('days-info').innerText = isCurrentMonth ? `距離月底 ${daysLeft-1} 天` : "";
 
         renderHistory(filtered, limit);
     }
@@ -174,22 +170,20 @@
         const amtInput = document.getElementById('spend-amount');
         const noteInput = document.getElementById('spend-note');
         if (isNaN(parseFloat(amtInput.value))) return;
-
         const now = new Date();
         records.push({
             date: now.toLocaleDateString('zh-TW'),
-            note: noteInput.value || (currentType === 'in' ? "額外收入" : "一般支出"),
+            note: noteInput.value || (currentType === 'in' ? "收入" : "支出"),
             amount: parseFloat(amtInput.value),
             type: currentType,
             timestamp: now.getTime()
         });
-
         saveAndRefresh();
         amtInput.value = ''; noteInput.value = '';
     }
 
     function deleteRecord(timestamp) {
-        if (confirm("要刪除這筆紀錄嗎？")) {
+        if (confirm("要刪除嗎？")) {
             records = records.filter(r => r.timestamp !== timestamp);
             saveAndRefresh();
         }
@@ -230,7 +224,7 @@
         const blob = new Blob([JSON.stringify(records)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = '摳摳守護者備份.json'; a.click();
+        a.href = url; a.download = '預算備份.json'; a.click();
     }
 
     function importData() { document.getElementById('importFile').click(); }
