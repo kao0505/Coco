@@ -45,7 +45,6 @@
         .diff-pos { color: var(--success); }
         .diff-neg { color: var(--danger); }
         
-        /* 校準與備份區 */
         .system-zone { margin-top: 40px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
         .adjust-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 15px; }
         .backup-btns { display: flex; gap: 8px; }
@@ -67,7 +66,7 @@
         </div>
         <div class="balance-item" style="border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px;">
             <small>自由基金</small>
-            <div id="safety-balance" style="color: #63ffad;">$ 0</div>
+            <div id="safety-balance">$ 0</div>
         </div>
     </div>
 
@@ -101,14 +100,14 @@
             <label style="font-size: 12px; color: #64748b;">餘額校準：目前實際多少錢？</label>
             <div style="display: flex; gap: 8px; margin-top: 5px;">
                 <input type="number" id="manual-adjust-val" placeholder="輸入實際金額" style="padding: 8px; font-size: 14px;">
-                <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">執行校準</button>
+                <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">校準</button>
             </div>
         </div>
 
         <div class="backup-btns">
-            <button class="btn-small" onclick="exportData()">備份資料</button>
-            <button class="btn-small" onclick="importData()">匯入資料</button>
-            <button class="btn-small" style="color:var(--danger)" onclick="clearData()">清空所有</button>
+            <button class="btn-small" onclick="exportData()">備份</button>
+            <button class="btn-small" onclick="importData()">匯入</button>
+            <button class="btn-small" style="color:var(--danger)" onclick="clearData()">清空</button>
         </div>
     </div>
     <input type="file" id="importFile" style="display:none" onchange="handleFileSelect(event)">
@@ -153,7 +152,9 @@
         const limit = parseFloat(document.getElementById('daily-limit').value) || 0;
         const selectedMonth = document.getElementById('view-month').value;
         const [year, month] = selectedMonth.split('/').map(Number);
-        const lastDayOfMonth = new Date(year, month, 0).getDate();
+        
+        const lastDayDate = new Date(year, month, 0);
+        const lastDayOfMonth = lastDayDate.getDate();
         const today = new Date();
         const isCurrentMonth = (today.getFullYear() === year && (today.getMonth() + 1) === month);
 
@@ -165,28 +166,28 @@
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
         
+        // 核心邏輯：當前剩餘
         lastCalculatedCash = budget + totalIn - totalOut;
 
-        const daysLeft = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
-        const futureCommitment = daysLeft * limit;
-        const safetyBal = lastCalculatedCash - futureCommitment;
+        // 核心邏輯：自由金扣除剩餘日上限
+        // 計算剩餘天數：月底日期 - 今天日期 + 1 (包含今天)
+        const daysRemaining = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
+        const futureReserved = daysRemaining * limit;
+        const safetyBal = lastCalculatedCash - futureReserved;
 
         document.getElementById('actual-cash').innerText = `$ ${Math.round(lastCalculatedCash).toLocaleString()}`;
         document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
         document.getElementById('safety-balance').style.color = safetyBal >= 0 ? "#63ffad" : "#ff8787";
-        document.getElementById('days-info').innerText = isCurrentMonth ? `距離月底 ${daysLeft-1} 天` : "";
+        document.getElementById('days-info').innerText = isCurrentMonth ? `本月剩餘 ${daysRemaining} 天` : "";
 
         renderHistory(filtered, limit);
     }
 
-    // 校準功能邏輯
     function adjustBalance() {
         const targetVal = parseFloat(document.getElementById('manual-adjust-val').value);
         if (isNaN(targetVal)) return;
-
         const diff = targetVal - lastCalculatedCash;
         if (diff === 0) return;
-
         const now = new Date();
         records.push({
             date: now.toLocaleDateString('zh-TW'),
@@ -195,10 +196,8 @@
             type: diff > 0 ? 'in' : 'out',
             timestamp: now.getTime()
         });
-
         document.getElementById('manual-adjust-val').value = '';
         saveAndRefresh();
-        alert("校準完成！已補上差額。");
     }
 
     function addRecord() {
@@ -260,19 +259,15 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = '預算備份.json'; a.click();
     }
-
     function importData() { document.getElementById('importFile').click(); }
-
     function handleFileSelect(e) {
         const reader = new FileReader();
         reader.onload = function(event) {
-            try { records = JSON.parse(event.target.result); saveAndRefresh(); alert("備份匯入成功！"); } 
-            catch(e) { alert("格式錯誤"); }
+            try { records = JSON.parse(event.target.result); saveAndRefresh(); } catch(e) { alert("錯誤"); }
         };
         reader.readAsText(e.target.files[0]);
     }
-
-    function clearData() { if (confirm("確定清空所有數據？")) { records = []; localStorage.clear(); loadSettings(); calculate(); } }
+    function clearData() { if (confirm("確定清空？")) { records = []; localStorage.clear(); loadSettings(); calculate(); } }
 
     loadSettings();
     initMonthSelector();
