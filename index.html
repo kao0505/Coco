@@ -142,8 +142,8 @@
         const limit = parseFloat(document.getElementById('daily-limit').value) || 0;
         const selectedMonth = document.getElementById('view-month').value;
         const [year, month] = selectedMonth.split('/').map(Number);
-        const lastDayDate = new Date(year, month, 0);
-        const lastDayOfMonth = lastDayDate.getDate();
+        
+        const lastDayOfMonth = new Date(year, month, 0).getDate();
         const today = new Date();
         const isCurrentMonth = (today.getFullYear() === year && (today.getMonth() + 1) === month);
 
@@ -152,30 +152,21 @@
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
-        // 1. 當前總剩餘
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
+        
+        // 1. 當前總剩餘 (手邊實際現有的錢)
         lastCalculatedCash = budget + totalIn - totalOut;
 
-        // 2. 自由基金：(月預算 - 全月生活費) + 累計省下的錢 + 一般收入 (排除校準)
-        const baseIdleMoney = budget - (lastDayOfMonth * limit);
-        const normalOutRecords = filtered.filter(r => r.type === 'out' && r.note !== "校正紀錄");
-        const normalInRecords = filtered.filter(r => r.type === 'in' && r.note !== "校正紀錄");
-        
-        const normalTotalOut = normalOutRecords.reduce((sum, r) => sum + r.amount, 0);
-        const normalTotalIn = normalInRecords.reduce((sum, r) => sum + r.amount, 0);
-        
-        const uniqueOutDates = new Set(normalOutRecords.map(r => r.date));
-        const activeDaysCount = uniqueOutDates.size;
-        
-        const savedFromDaily = (activeDaysCount * limit) - normalTotalOut;
-        const safetyBal = baseIdleMoney + savedFromDaily + normalTotalIn;
+        // 2. 自由基金：(當前現金) - (本月剩餘天數 * 日上限)
+        // 包含今天在內的剩餘天數
+        const daysRemaining = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
+        const safetyBal = lastCalculatedCash - (daysRemaining * limit);
 
         document.getElementById('actual-cash').innerText = `$ ${Math.round(lastCalculatedCash).toLocaleString()}`;
         document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
         document.getElementById('safety-balance').style.color = safetyBal >= 0 ? "#63ffad" : "#ff8787";
         
-        const daysRemaining = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
         document.getElementById('days-info').innerText = isCurrentMonth ? `本月剩餘 ${daysRemaining} 天` : "";
 
         renderHistory(filtered, limit);
