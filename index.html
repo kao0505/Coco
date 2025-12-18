@@ -8,28 +8,25 @@
         :root { --primary: #2563eb; --success: #22c55e; --danger: #ef4444; --bg: #f8fafc; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { background: white; width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 20px; box-sizing: border-box; }
-        
-        /* 頂部結餘看板 */
-        .main-balance { background: #1e293b; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
+        .main-balance { background: #1e293b; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; position: relative; }
         .main-balance div { font-size: 32px; font-weight: 800; margin-top: 5px; }
+        .days-left { position: absolute; top: 10px; right: 15px; font-size: 11px; color: #94a3b8; }
         
         .month-selector-group { margin-bottom: 15px; text-align: center; }
-        select { padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; background: #fff; color: var(--primary); width: 100%; cursor: pointer; }
-
+        select { padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 16px; font-weight: bold; background: #fff; color: var(--primary); width: 100%; cursor: pointer; text-align-last: center; }
+        
         .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .input-group { margin-bottom: 12px; }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #475569; }
         input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
-        /* 收支切換鈕 */
         .type-selector { display: flex; gap: 10px; margin-bottom: 10px; }
-        .type-btn { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; font-weight: bold; color: #64748b; transition: 0.2s; }
+        .type-btn { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; font-weight: bold; color: #64748b; }
         .type-btn.active-out { border-color: var(--danger); color: var(--danger); background: #fef2f2; }
         .type-btn.active-in { border-color: var(--success); color: var(--success); background: #f0fdf4; }
 
         button.main-submit { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background: var(--primary); color: white; }
         
-        /* 明細列表 */
         .history { margin-top: 20px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
         .history-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f8fafc; align-items: center; }
         .date-info { display: flex; flex-direction: column; flex-grow: 1; }
@@ -37,16 +34,14 @@
         .note-text { font-size: 15px; font-weight: 500; color: #334155; }
         
         .item-right { text-align: right; display: flex; align-items: center; gap: 10px; }
-        .delete-btn { color: #cbd5e1; cursor: pointer; font-size: 18px; padding: 5px; line-height: 1; transition: 0.2s; border: none; background: none; }
-        .delete-btn:hover { color: var(--danger); }
-
+        .delete-btn { color: #cbd5e1; cursor: pointer; font-size: 18px; padding: 5px; border: none; background: none; }
+        
         .txt-red { color: var(--danger); font-weight: bold; }
         .txt-green { color: var(--success); font-weight: bold; }
         .diff-tag { font-size: 12px; font-weight: bold; margin-left: 4px; }
         .diff-pos { color: var(--success); }
         .diff-neg { color: var(--danger); }
         
-        /* 底部備份區 */
         .backup-zone { margin-top: 40px; border-top: 1px dashed #cbd5e1; padding-top: 15px; display: flex; gap: 8px; }
         .btn-small { flex: 1; padding: 8px; background: #f1f5f9; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; color: #64748b; }
     </style>
@@ -54,32 +49,35 @@
 <body>
 
 <div class="container">
+    <h2 style="text-align:center; color:#1e293b; margin-top:0;">🛡️ 摳摳守護者</h2>
+
     <div class="month-selector-group">
         <select id="view-month" onchange="calculate()"></select>
     </div>
 
     <div class="main-balance">
+        <span class="days-left" id="days-info"></span>
         <small id="balance-label">結餘計算中...</small>
         <div id="total-balance">$ 0</div>
     </div>
 
     <div class="config-grid">
         <div class="input-group">
-            <label>月總金額</label>
-            <input type="number" id="monthly-budget" value="0" oninput="calculate()">
+            <label>月預算</label>
+            <input type="number" id="monthly-budget" placeholder="0" oninput="saveSettings(); calculate()">
         </div>
         <div class="input-group">
             <label>日上限</label>
-            <input type="number" id="daily-limit" value="0" oninput="calculate()">
+            <input type="number" id="daily-limit" placeholder="0" oninput="saveSettings(); calculate()">
         </div>
     </div>
 
     <div class="input-group">
         <div class="type-selector">
-            <button id="btn-out" class="type-btn active-out" onclick="setType('out')">消費 (紅)</button>
+            <button id="btn-out" class="type-btn active-out" onclick="setType('out')">支出 (紅)</button>
             <button id="btn-in" class="type-btn" onclick="setType('in')">收入 (綠)</button>
         </div>
-        <input type="text" id="spend-note" placeholder="項目說明">
+        <input type="text" id="spend-note" placeholder="項目說明 (如: 午餐)">
         <input type="number" id="spend-amount" placeholder="金額" style="margin-top:5px">
         <button class="main-submit" style="margin-top:10px" onclick="addRecord()">存入帳目</button>
     </div>
@@ -100,15 +98,25 @@
     let records = JSON.parse(localStorage.getItem('budget_records_v10')) || [];
     let currentType = 'out';
 
+    function loadSettings() {
+        document.getElementById('monthly-budget').value = localStorage.getItem('budget_setting_total') || "0";
+        document.getElementById('daily-limit').value = localStorage.getItem('budget_setting_limit') || "0";
+    }
+
+    function saveSettings() {
+        localStorage.setItem('budget_setting_total', document.getElementById('monthly-budget').value);
+        localStorage.setItem('budget_setting_limit', document.getElementById('daily-limit').value);
+    }
+
     function initMonthSelector() {
         const selector = document.getElementById('view-month');
         const now = new Date();
-        for (let i = 2; i > -10; i--) {
+        for (let i = 2; i > -12; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
             const val = `${d.getFullYear()}/${d.getMonth() + 1}`;
             const opt = document.createElement('option');
             opt.value = val;
-            opt.innerText = val + " ";
+            opt.innerText = val; // 移除「帳目」二字
             if (i === 0) opt.selected = true;
             selector.appendChild(opt);
         }
@@ -126,22 +134,35 @@
         const selectedMonth = document.getElementById('view-month').value;
         
         const [year, month] = selectedMonth.split('/').map(Number);
-        const daysInMonth = new Date(year, month, 0).getDate();
+        const lastDayOfMonth = new Date(year, month, 0).getDate();
         
         const filtered = records.filter(r => {
             const d = new Date(r.timestamp);
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
+        let startDay = 1;
+        if (filtered.length > 0) {
+            const firstRecordDate = new Date(Math.min(...filtered.map(r => r.timestamp)));
+            startDay = firstRecordDate.getDate();
+        }
+        
+        const totalDaysCount = (lastDayOfMonth - startDay) + 1;
+        const adjustedBudget = (budget / lastDayOfMonth) * totalDaysCount;
+        
         const uniqueOutDates = new Set(filtered.filter(r => r.type === 'out').map(r => r.date));
         const activeDaysCount = uniqueOutDates.size;
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
         
-        const baseReserve = budget - (limit * daysInMonth);
+        const baseReserve = adjustedBudget - (limit * totalDaysCount);
         const currentBalance = baseReserve + (activeDaysCount * limit) - totalOut + totalIn;
 
-        document.getElementById('balance-label').innerText = selectedMonth + " 累計結餘";
+        const today = new Date();
+        const daysLeft = lastDayOfMonth - today.getDate();
+        document.getElementById('days-info').innerText = daysLeft >= 0 && (today.getMonth()+1 === month) ? `距離月底 ${daysLeft} 天` : "";
+
+        document.getElementById('balance-label').innerText = `${selectedMonth} 結餘`;
         const balEl = document.getElementById('total-balance');
         balEl.innerText = `$ ${Math.round(currentBalance).toLocaleString()}`;
         balEl.style.color = currentBalance >= 0 ? "#63ffad" : "#ff8787";
@@ -168,7 +189,7 @@
     }
 
     function deleteRecord(timestamp) {
-        if (confirm("確定要刪除這筆紀錄嗎？")) {
+        if (confirm("要刪除這筆紀錄嗎？")) {
             records = records.filter(r => r.timestamp !== timestamp);
             saveAndRefresh();
         }
@@ -182,10 +203,8 @@
     function renderHistory(data, limit) {
         const list = document.getElementById('history-list');
         list.innerHTML = '';
-        
         let dayOutTotals = {};
         const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
-        
         const processed = sorted.map(r => {
             if (r.type === 'out') {
                 dayOutTotals[r.date] = (dayOutTotals[r.date] || 0) + r.amount;
@@ -193,7 +212,6 @@
             }
             return r;
         });
-
         processed.reverse().forEach(r => {
             let rightHTML = '';
             if (r.type === 'out') {
@@ -204,18 +222,7 @@
             } else {
                 rightHTML = `<div class="txt-green">+$${r.amount} <span class="diff-tag txt-green">(收入)</span></div>`;
             }
-            
-            list.innerHTML += `
-                <div class="history-item">
-                    <div class="date-info">
-                        <span class="date-tag">${r.date}</span>
-                        <span class="note-text">${r.note}</span>
-                    </div>
-                    <div class="item-right">
-                        ${rightHTML}
-                        <button class="delete-btn" onclick="deleteRecord(${r.timestamp})">✕</button>
-                    </div>
-                </div>`;
+            list.innerHTML += `<div class="history-item"><div class="date-info"><span class="date-tag">${r.date}</span><span class="note-text">${r.note}</span></div><div class="item-right">${rightHTML}<button class="delete-btn" onclick="deleteRecord(${r.timestamp})">✕</button></div></div>`;
         });
     }
 
@@ -223,7 +230,7 @@
         const blob = new Blob([JSON.stringify(records)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'my_budget_backup.json'; a.click();
+        a.href = url; a.download = '摳摳守護者備份.json'; a.click();
     }
 
     function importData() { document.getElementById('importFile').click(); }
@@ -233,14 +240,15 @@
         reader.onload = function(event) {
             try {
                 records = JSON.parse(event.target.result);
-                saveAndRefresh(); alert("資料匯入成功！");
-            } catch(e) { alert("檔案格式錯誤"); }
+                saveAndRefresh(); alert("備份匯入成功！");
+            } catch(e) { alert("格式錯誤"); }
         };
         reader.readAsText(e.target.files[0]);
     }
 
-    function clearData() { if (confirm("確定清空所有月份的紀錄嗎？")) { records = []; localStorage.clear(); calculate(); } }
+    function clearData() { if (confirm("確定清空所有數據？")) { records = []; localStorage.clear(); loadSettings(); calculate(); } }
 
+    loadSettings();
     initMonthSelector();
     calculate();
 </script>
