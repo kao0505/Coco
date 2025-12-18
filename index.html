@@ -8,43 +8,34 @@
         :root { --primary: #2563eb; --success: #22c55e; --danger: #ef4444; --bg: #f8fafc; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { background: white; width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 20px; box-sizing: border-box; }
-        
         .main-balance { background: #1e293b; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; position: relative; margin-top: 5px; }
         .balance-item { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; }
         .balance-item small { font-size: 12px; color: #94a3b8; }
         .balance-item div { font-size: 24px; font-weight: 800; }
         .days-left { position: absolute; top: 10px; right: 15px; font-size: 11px; color: #64748b; }
-        
         .month-selector-group { margin-bottom: 15px; text-align: center; }
         select { padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 16px; font-weight: bold; background: #fff; color: var(--primary); width: 100%; cursor: pointer; text-align-last: center; }
-        
         .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .input-group { margin-bottom: 12px; }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #475569; }
         input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        
         .type-selector { display: flex; gap: 10px; margin-bottom: 10px; }
         .type-btn { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; font-weight: bold; color: #64748b; }
         .type-btn.active-out { border-color: var(--danger); color: var(--danger); background: #fef2f2; }
         .type-btn.active-in { border-color: var(--success); color: var(--success); background: #f0fdf4; }
-
         button.main-submit { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background: var(--primary); color: white; }
-        
         .history { margin-top: 20px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
         .history-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f8fafc; align-items: center; }
         .date-info { display: flex; flex-direction: column; flex-grow: 1; }
         .date-tag { font-size: 11px; color: #94a3b8; }
         .note-text { font-size: 15px; font-weight: 500; color: #334155; }
-        
         .item-right { text-align: right; display: flex; align-items: center; gap: 10px; }
         .delete-btn { color: #cbd5e1; cursor: pointer; font-size: 18px; padding: 5px; border: none; background: none; }
-        
         .txt-red { color: var(--danger); font-weight: bold; }
         .txt-green { color: var(--success); font-weight: bold; }
         .diff-tag { font-size: 12px; font-weight: bold; margin-left: 4px; }
         .diff-pos { color: var(--success); }
         .diff-neg { color: var(--danger); }
-        
         .system-zone { margin-top: 40px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
         .adjust-box { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 15px; }
         .backup-btns { display: flex; gap: 8px; }
@@ -66,7 +57,7 @@
         </div>
         <div class="balance-item" style="border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px;">
             <small>自由基金</small>
-            <div id="safety-balance">$ 0</div>
+            <div id="safety-balance" style="color: #63ffad;">$ 0</div>
         </div>
     </div>
 
@@ -103,7 +94,6 @@
                 <button onclick="adjustBalance()" style="background: #64748b; color: white; border: none; border-radius: 8px; padding: 0 15px; cursor: pointer; font-size: 13px; white-space: nowrap;">校準</button>
             </div>
         </div>
-
         <div class="backup-btns">
             <button class="btn-small" onclick="exportData()">備份</button>
             <button class="btn-small" onclick="importData()">匯入</button>
@@ -131,7 +121,7 @@
     function initMonthSelector() {
         const selector = document.getElementById('view-month');
         const now = new Date();
-        for (let i = 2; i > -10; i--) {
+        for (let i = 2; i > -12; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
             const val = `${d.getFullYear()}/${d.getMonth() + 1}`;
             const opt = document.createElement('option');
@@ -163,21 +153,28 @@
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
+        // 1. 當前現金
         const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
         const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
-        
-        // 核心邏輯：當前剩餘
         lastCalculatedCash = budget + totalIn - totalOut;
 
-        // 核心邏輯：自由金扣除剩餘日上限
-        // 計算剩餘天數：月底日期 - 今天日期 + 1 (包含今天)
-        const daysRemaining = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
-        const futureReserved = daysRemaining * limit;
-        const safetyBal = lastCalculatedCash - futureReserved;
+        // 2. 符合你的算法邏輯的「自由金」
+        // 公式：(月預算 - 月天數 * 日上限) + (已花錢天數 * 日上限 - 已花錢總額) + 額外收入
+        const baseIdleMoney = budget - (lastDayOfMonth * limit); // 全月預扣掉生活費後剩餘的錢 (3700)
+        
+        // 計算「過去省下的錢」：找出有支出的不重複日期
+        const uniqueOutDates = new Set(filtered.filter(r => r.type === 'out').map(r => r.date));
+        const activeDaysCount = uniqueOutDates.size;
+        const savedFromDaily = (activeDaysCount * limit) - totalOut; // 已花天數的額度 - 總支出
+        
+        // 自由金 = 初始閒錢 + 累計省下的錢 + 額外收入
+        const safetyBal = baseIdleMoney + savedFromDaily + totalIn;
 
         document.getElementById('actual-cash').innerText = `$ ${Math.round(lastCalculatedCash).toLocaleString()}`;
         document.getElementById('safety-balance').innerText = `$ ${Math.round(safetyBal).toLocaleString()}`;
         document.getElementById('safety-balance').style.color = safetyBal >= 0 ? "#63ffad" : "#ff8787";
+        
+        const daysRemaining = isCurrentMonth ? (lastDayOfMonth - today.getDate() + 1) : 0;
         document.getElementById('days-info').innerText = isCurrentMonth ? `本月剩餘 ${daysRemaining} 天` : "";
 
         renderHistory(filtered, limit);
@@ -189,13 +186,7 @@
         const diff = targetVal - lastCalculatedCash;
         if (diff === 0) return;
         const now = new Date();
-        records.push({
-            date: now.toLocaleDateString('zh-TW'),
-            note: "餘額校準",
-            amount: Math.abs(diff),
-            type: diff > 0 ? 'in' : 'out',
-            timestamp: now.getTime()
-        });
+        records.push({ date: now.toLocaleDateString('zh-TW'), note: "餘額校準", amount: Math.abs(diff), type: diff > 0 ? 'in' : 'out', timestamp: now.getTime() });
         document.getElementById('manual-adjust-val').value = '';
         saveAndRefresh();
     }
@@ -205,32 +196,16 @@
         const noteInput = document.getElementById('spend-note');
         if (isNaN(parseFloat(amtInput.value))) return;
         const now = new Date();
-        records.push({
-            date: now.toLocaleDateString('zh-TW'),
-            note: noteInput.value || (currentType === 'in' ? "收入" : "支出"),
-            amount: parseFloat(amtInput.value),
-            type: currentType,
-            timestamp: now.getTime()
-        });
+        records.push({ date: now.toLocaleDateString('zh-TW'), note: noteInput.value || (currentType === 'in' ? "收入" : "支出"), amount: parseFloat(amtInput.value), type: currentType, timestamp: now.getTime() });
         saveAndRefresh();
         amtInput.value = ''; noteInput.value = '';
     }
 
-    function deleteRecord(timestamp) {
-        if (confirm("要刪除嗎？")) {
-            records = records.filter(r => r.timestamp !== timestamp);
-            saveAndRefresh();
-        }
-    }
-
-    function saveAndRefresh() {
-        localStorage.setItem('budget_records_v10', JSON.stringify(records));
-        calculate();
-    }
+    function deleteRecord(timestamp) { if (confirm("要刪除嗎？")) { records = records.filter(r => r.timestamp !== timestamp); saveAndRefresh(); } }
+    function saveAndRefresh() { localStorage.setItem('budget_records_v10', JSON.stringify(records)); calculate(); }
 
     function renderHistory(data, limit) {
-        const list = document.getElementById('history-list');
-        list.innerHTML = '';
+        const list = document.getElementById('history-list'); list.innerHTML = '';
         let dayOutTotals = {};
         const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
         const processed = sorted.map(r => {
@@ -244,9 +219,7 @@
             let rightHTML = '';
             if (r.type === 'out') {
                 const diff = limit - r.dayTotal;
-                const sign = diff >= 0 ? "+" : "";
-                const diffColor = diff >= 0 ? 'diff-pos' : 'diff-neg';
-                rightHTML = `<div class="txt-red">-$${r.amount} <span class="diff-tag ${diffColor}">(${sign}${diff})</span></div>`;
+                rightHTML = `<div class="txt-red">-$${r.amount} <span class="diff-tag ${diff>=0?'diff-pos':'diff-neg'}">(${diff>=0?'+':''}${diff})</span></div>`;
             } else {
                 rightHTML = `<div class="txt-green">+$${r.amount} <span class="diff-tag txt-green">(收入)</span></div>`;
             }
@@ -269,9 +242,7 @@
     }
     function clearData() { if (confirm("確定清空？")) { records = []; localStorage.clear(); loadSettings(); calculate(); } }
 
-    loadSettings();
-    initMonthSelector();
-    calculate();
+    loadSettings(); initMonthSelector(); calculate();
 </script>
 </body>
 </html>
