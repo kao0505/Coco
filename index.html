@@ -79,7 +79,7 @@
             <button id="btn-out" class="type-btn active-out" onclick="setType('out')">消費 (紅)</button>
             <button id="btn-in" class="type-btn" onclick="setType('in')">收入 (綠)</button>
         </div>
-        <input type="text" id="spend-note" placeholder="項目說明 (如: 午餐)">
+        <input type="text" id="spend-note" placeholder="項目說明">
         <input type="number" id="spend-amount" placeholder="金額" style="margin-top:5px">
         <button class="main-submit" style="margin-top:10px" onclick="addRecord()">存入帳目</button>
     </div>
@@ -108,7 +108,7 @@
             const val = `${d.getFullYear()}/${d.getMonth() + 1}`;
             const opt = document.createElement('option');
             opt.value = val;
-            opt.innerText = val + " 帳目";
+            opt.innerText = val + " ";
             if (i === 0) opt.selected = true;
             selector.appendChild(opt);
         }
