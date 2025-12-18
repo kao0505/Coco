@@ -1,33 +1,36 @@
-# Coco
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>預算管家 v9 - 月份切換版</title>
+    <title>摳摳守護者</title>
     <style>
         :root { --primary: #2563eb; --success: #22c55e; --danger: #ef4444; --bg: #f8fafc; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { background: white; width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 20px; box-sizing: border-box; }
         
+        /* 頂部結餘看板 */
         .main-balance { background: #1e293b; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
         .main-balance div { font-size: 32px; font-weight: 800; margin-top: 5px; }
         
-        .month-selector-group { margin-bottom: 20px; text-align: center; }
-        select { padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 16px; font-weight: bold; background: #fff; color: var(--primary); }
+        .month-selector-group { margin-bottom: 15px; text-align: center; }
+        select { padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; background: #fff; color: var(--primary); width: 100%; cursor: pointer; }
 
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .input-group { margin-bottom: 12px; }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #475569; }
         input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
+        /* 收支切換鈕 */
         .type-selector { display: flex; gap: 10px; margin-bottom: 10px; }
-        .type-btn { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; font-weight: bold; color: #64748b; }
+        .type-btn { flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; font-weight: bold; color: #64748b; transition: 0.2s; }
         .type-btn.active-out { border-color: var(--danger); color: var(--danger); background: #fef2f2; }
         .type-btn.active-in { border-color: var(--success); color: var(--success); background: #f0fdf4; }
 
         button.main-submit { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; background: var(--primary); color: white; }
         
-        .history { margin-top: 25px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
+        /* 明細列表 */
+        .history { margin-top: 20px; border-top: 2px solid #f1f5f9; padding-top: 15px; }
         .history-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f8fafc; align-items: center; }
         .date-info { display: flex; flex-direction: column; }
         .date-tag { font-size: 11px; color: #94a3b8; }
@@ -39,70 +42,71 @@
         .diff-pos { color: var(--success); }
         .diff-neg { color: var(--danger); }
         
-        .balance-up { color: #63ffad !important; }
-        .balance-down { color: #ff8787 !important; }
+        /* 底部備份區 */
+        .backup-zone { margin-top: 40px; border-top: 1px dashed #cbd5e1; padding-top: 15px; display: flex; gap: 8px; }
+        .btn-small { flex: 1; padding: 8px; background: #f1f5f9; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; color: #64748b; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="month-selector-group">
-        <label>查看月份</label>
         <select id="view-month" onchange="calculate()"></select>
     </div>
 
     <div class="main-balance">
-        <small id="balance-label">當前月餘</small>
+        <small id="balance-label">結餘計算中...</small>
         <div id="total-balance">$ 0</div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+    <div class="config-grid">
         <div class="input-group">
-            <label>本月總金額</label>
-            <input type="number" id="monthly-budget" value="30000" oninput="calculate()">
+            <label>月總金額</label>
+            <input type="number" id="monthly-budget" value="13000" oninput="calculate()">
         </div>
         <div class="input-group">
-            <label>每日上限</label>
-            <input type="number" id="daily-limit" value="500" oninput="calculate()">
+            <label>日上限</label>
+            <input type="number" id="daily-limit" value="300" oninput="calculate()">
         </div>
     </div>
 
     <div class="input-group">
-        <label>新增紀錄</label>
         <div class="type-selector">
-            <button id="btn-out" class="type-btn active-out" onclick="setType('out')">支出 (紅)</button>
+            <button id="btn-out" class="type-btn active-out" onclick="setType('out')">消費 (紅)</button>
             <button id="btn-in" class="type-btn" onclick="setType('in')">收入 (綠)</button>
         </div>
-        <input type="text" id="spend-note" placeholder="項目說明">
+        <input type="text" id="spend-note" placeholder="項目說明 (如: 午餐)">
         <input type="number" id="spend-amount" placeholder="金額" style="margin-top:5px">
-        <button class="main-submit" style="margin-top:10px" onclick="addRecord()">存入紀錄</button>
+        <button class="main-submit" style="margin-top:10px" onclick="addRecord()">存入帳目</button>
     </div>
 
     <div class="history">
-        <label id="list-label">明細紀錄</label>
         <div id="history-list"></div>
     </div>
     
-    <button onclick="clearData()" style="margin-top: 30px; background: none; color: #cbd5e1; font-size: 11px; border:none; width:100%; cursor:pointer;">清除所有紀錄</button>
+    <div class="backup-zone">
+        <button class="btn-small" onclick="exportData()">備份資料</button>
+        <button class="btn-small" onclick="importData()">匯入資料</button>
+        <button class="btn-small" style="color:var(--danger)" onclick="clearData()">清空所有</button>
+    </div>
+    <input type="file" id="importFile" style="display:none" onchange="handleFileSelect(event)">
 </div>
 
 <script>
-    let records = JSON.parse(localStorage.getItem('budget_records_v9')) || [];
+    let records = JSON.parse(localStorage.getItem('budget_records_v10')) || [];
     let currentType = 'out';
 
-    // 初始化月份選單
+    // 初始化月份選單 (前 6 個月 ~ 後 6 個月)
     function initMonthSelector() {
         const selector = document.getElementById('view-month');
         const now = new Date();
-        selector.innerHTML = '';
-        
-        // 產生過去 6 個月到未來的選單
-        for (let i = 0; i > -12; i--) {
+        for (let i = 2; i > -10; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
             const val = `${d.getFullYear()}/${d.getMonth() + 1}`;
             const opt = document.createElement('option');
             opt.value = val;
-            opt.innerText = val;
+            opt.innerText = val + " 帳目";
+            if (i === 0) opt.selected = true;
             selector.appendChild(opt);
         }
     }
@@ -116,33 +120,33 @@
     function calculate() {
         const budget = parseFloat(document.getElementById('monthly-budget').value) || 0;
         const limit = parseFloat(document.getElementById('daily-limit').value) || 0;
-        const selectedMonth = document.getElementById('view-month').value; // 格式 "2023/12"
+        const selectedMonth = document.getElementById('view-month').value;
         
         const [year, month] = selectedMonth.split('/').map(Number);
         const daysInMonth = new Date(year, month, 0).getDate();
         
-        // 篩選出選定月份的紀錄
-        const filteredRecords = records.filter(r => {
+        // 篩選當月資料
+        const filtered = records.filter(r => {
             const d = new Date(r.timestamp);
             return `${d.getFullYear()}/${d.getMonth() + 1}` === selectedMonth;
         });
 
-        const uniqueOutDates = new Set(filteredRecords.filter(r => r.type === 'out').map(r => r.date));
+        // 邏輯計算
+        const uniqueOutDates = new Set(filtered.filter(r => r.type === 'out').map(r => r.date));
         const activeDaysCount = uniqueOutDates.size;
+        const totalOut = filtered.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
+        const totalIn = filtered.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
         
-        const totalOut = filteredRecords.filter(r => r.type === 'out').reduce((sum, r) => sum + r.amount, 0);
-        const totalIn = filteredRecords.filter(r => r.type === 'in').reduce((sum, r) => sum + r.amount, 0);
-        
-        // 總月餘公式
+        // 總月餘 = (總額 - 每日上限*天數) + (有花錢天數*每日上限) - 總花費 + 總收入
         const baseReserve = budget - (limit * daysInMonth);
         const currentBalance = baseReserve + (activeDaysCount * limit) - totalOut + totalIn;
 
-        document.getElementById('balance-label').innerText = `${selectedMonth} 結餘`;
-        const balanceEl = document.getElementById('total-balance');
-        balanceEl.innerText = `$ ${Math.round(currentBalance).toLocaleString()}`;
-        balanceEl.className = currentBalance >= 0 ? 'balance-up' : 'balance-down';
+        document.getElementById('balance-label').innerText = selectedMonth + " 累計結餘";
+        const balEl = document.getElementById('total-balance');
+        balEl.innerText = `$ ${Math.round(currentBalance).toLocaleString()}`;
+        balEl.style.color = currentBalance >= 0 ? "#63ffad" : "#ff8787";
 
-        renderHistory(filteredRecords, limit);
+        renderHistory(filtered, limit);
     }
 
     function addRecord() {
@@ -153,48 +157,41 @@
         const now = new Date();
         records.push({
             date: now.toLocaleDateString('zh-TW'),
-            note: noteInput.value || (currentType === 'in' ? "收入" : "支出"),
+            note: noteInput.value || (currentType === 'in' ? "額外收入" : "一般支出"),
             amount: parseFloat(amtInput.value),
             type: currentType,
             timestamp: now.getTime()
         });
 
-        localStorage.setItem('budget_records_v9', JSON.stringify(records));
+        localStorage.setItem('budget_records_v10', JSON.stringify(records));
         amtInput.value = ''; noteInput.value = '';
-        
-        // 新增完畢後，確保選單回到「現在這個月」才能看到新明細
-        const currentVal = `${now.getFullYear()}/${now.getMonth() + 1}`;
-        document.getElementById('view-month').value = currentVal;
-        
         calculate();
     }
 
-    function renderHistory(filteredRecords, limit) {
+    function renderHistory(data, limit) {
         const list = document.getElementById('history-list');
         list.innerHTML = '';
         
         let dayOutTotals = {};
-        // 排序：舊到新計算累計
-        const sorted = [...filteredRecords].sort((a, b) => a.timestamp - b.timestamp);
+        const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
         
         const processed = sorted.map(r => {
             if (r.type === 'out') {
                 dayOutTotals[r.date] = (dayOutTotals[r.date] || 0) + r.amount;
-                return { ...r, dayOutSoFar: dayOutTotals[r.date] };
+                return { ...r, dayTotal: dayOutTotals[r.date] };
             }
             return r;
         });
 
-        // 顯示：新到舊
         processed.reverse().forEach(r => {
-            let rightSideHTML = '';
+            let rightHTML = '';
             if (r.type === 'out') {
-                const diff = limit - r.dayOutSoFar;
+                const diff = limit - r.dayTotal;
                 const sign = diff >= 0 ? "+" : "";
-                const diffColorClass = diff >= 0 ? 'diff-pos' : 'diff-neg';
-                rightSideHTML = `<div class="txt-red">-$${r.amount} <span class="diff-tag ${diffColorClass}">(${sign}${diff})</span></div>`;
+                const diffColor = diff >= 0 ? 'diff-pos' : 'diff-neg';
+                rightHTML = `<div class="txt-red">-$${r.amount} <span class="diff-tag ${diffColor}">(${sign}${diff})</span></div>`;
             } else {
-                rightSideHTML = `<div class="txt-green">+$${r.amount} <span class="diff-tag txt-green">(收入)</span></div>`;
+                rightHTML = `<div class="txt-green">+$${r.amount} <span class="diff-tag txt-green">(收入)</span></div>`;
             }
             
             list.innerHTML += `
@@ -203,13 +200,33 @@
                         <span class="date-tag">${r.date}</span>
                         <span class="note-text">${r.note}</span>
                     </div>
-                    ${rightSideHTML}
-                </div>
-            `;
+                    ${rightHTML}
+                </div>`;
         });
     }
 
-    function clearData() { if (confirm("確定清空所有紀錄？")) { records = []; localStorage.clear(); calculate(); } }
+    function exportData() {
+        const blob = new Blob([JSON.stringify(records)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'my_budget_backup.json'; a.click();
+    }
+
+    function importData() { document.getElementById('importFile').click(); }
+
+    function handleFileSelect(e) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                records = JSON.parse(event.target.result);
+                localStorage.setItem('budget_records_v10', JSON.stringify(records));
+                calculate(); alert("資料匯入成功！");
+            } catch(e) { alert("檔案格式錯誤"); }
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+
+    function clearData() { if (confirm("確定清空所有月份的紀錄嗎？")) { records = []; localStorage.clear(); calculate(); } }
 
     initMonthSelector();
     calculate();
